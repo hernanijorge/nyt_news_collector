@@ -1,28 +1,34 @@
-40  
 import requests
 import mysql.connector 
 import time
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+import os
 
 # === CONFIGURAÇÕES ===
 API_KEY = "REMOVIDO"
 BASE_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
-#BEGIN_DATE = "20250501"
-#END_DATE = "20250531"
+#BEGIN_DATE = "20250809"
+#END_DATE = "20250810"
 # Data final é ontem
-END_DATE = (datetime.today() - timedelta(days=1)).strftime('%Y%m%d')
-# Data inicial é X dias antes do END_DATE, por exemplo, 7 dias atrás
-BEGIN_DATE = (datetime.strptime(END_DATE, '%Y%m%d') - timedelta(days=7)).strftime('%Y%m%d')
-NUM_PAGES = 10
+#END_DATE = (datetime.today() - timedelta(days=1)).strftime('%Y%m%d')
+END_DATE = datetime.today().strftime('%Y%m%d') 
+# Data inicial é X dias antes do END_DATE, por exemplo, 1 dia atrás
+BEGIN_DATE = (datetime.strptime(END_DATE, '%Y%m%d') - timedelta(days=1)).strftime('%Y%m%d')
+NUM_PAGES = 50
 BASE_SLEEP = 1
 MAX_RETRIES_429 = 5
 
+print(f"🔎 Coletando de {BEGIN_DATE} até {END_DATE}")
+
 # === BANCO DE DADOS (MySQL) ===
 DB_CONFIG = {
-    'host': 'localhost', 
+    'host': 'localhost',
     'user': 'root',
     'password': 'REMOVIDO',
     'database': 'nyt_db',
@@ -46,7 +52,6 @@ def connect_db():
     conn.commit()
     return conn
 
-# === INSERIR NO BANCO ===
 def insert_articles(conn, articles):
     cursor = conn.cursor()
     for art in articles:
@@ -65,7 +70,6 @@ def insert_articles(conn, articles):
         ))
     conn.commit()
 
-# === COLETA ===
 def fetch_articles():
     todos_artigos = []
     page = 0
@@ -93,7 +97,7 @@ def fetch_articles():
                 if consecutive_429 > MAX_RETRIES_429:
                     print(f"• Muitas tentativas 429. Interrompendo no page={page}.")
                     break
-                wait_seconds = min(2 ** consecutive_429, 60)
+                wait_seconds = min(3 ** consecutive_429 * 6, 120)
                 print(f"• HTTP 429 na página {page}. Aguardando {wait_seconds}s e tentando de novo...")
                 time.sleep(wait_seconds)
                 continue
@@ -127,6 +131,32 @@ def fetch_articles():
 
     return todos_artigos
 
+def enviar_email_sucesso(qtd_artigos, caminho_csv):
+    corpo = f"The article load was completed successfully.\Total collected: {qtd_artigos} articles."
+
+    msg = MIMEMultipart()
+    msg["Subject"] = "✅ NYT load completed successfully"
+    msg["From"] = "hernani_jorge@yahoo.com.br"
+    msg["To"] = "kjcoogan@gmail.com"
+
+    msg.attach(MIMEText(corpo, "plain"))
+
+    if os.path.exists(caminho_csv):
+        with open(caminho_csv, "rb") as f:
+            part = MIMEApplication(f.read(), Name=os.path.basename(caminho_csv))
+            part["Content-Disposition"] = f'attachment; filename="{os.path.basename(caminho_csv)}"'
+            msg.attach(part)
+    else:
+        print("⚠️ CSV não encontrado. E-mail será enviado sem anexo.")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.mail.yahoo.com", 465) as server:
+            server.login("hernani_jorge@yahoo.com.br", "REMOVIDO")  # senha de app Yahoo
+            server.send_message(msg)
+        print("📧 E-mail com anexo enviado.")
+    except Exception as e:
+        print(f"❌ Falha ao enviar e-mail: {e}")
+
 # === MAIN ===
 def main():
     print("Iniciando coleta de artigos...")
@@ -134,6 +164,14 @@ def main():
     artigos = fetch_articles()
     if artigos:
         insert_articles(conn, artigos)
+
+        # Exportar para CSV
+        df = pd.DataFrame(artigos)
+        filename = f"nyt_articles_{BEGIN_DATE}_a_{END_DATE}.csv"
+        df.to_csv(filename, index=False, encoding="utf-8-sig")
+        print(f"📁 CSV salvo: {filename}")
+
+        enviar_email_sucesso(len(artigos), filename)
         print(f"✅ Inseridos {len(artigos)} artigos no banco de dados.")
     else:
         print("⚠️ Nenhum artigo coletado.")
@@ -143,8 +181,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-# === EXECUÇÃO DIÁRIA AUTOMÁTICA ===
-while True:
-    main()
-    print("✅ Execução finalizada. Aguardando 20 minutos...")
-    time.sleep(1200)  # Espera 20 minutos
+
+
