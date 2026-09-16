@@ -149,7 +149,7 @@ def run(authorization: str = Header(None)):
 
     insert_articles(conn, artigos)
     df = pd.DataFrame(artigos)
-    ##filename = f"/tmp/nyt_articles_{begin_date}_a_{end_date}.csv"
+    #filename = f"/tmp/nyt_articles_{begin_date}_a_{end_date}.csv"
     filename = os.path.join(tempfile.gettempdir(), f"nyt_articles_{begin_date}_a_{end_date}.csv")
     df.to_csv(filename, index=False, encoding="utf-8-sig")
     enviar_email_sucesso(len(artigos), filename)
