@@ -1,4 +1,4 @@
-# app.py (nomeado nyt_api.py no projeto local)
+# app.py 
 import os
 import time
 import random
