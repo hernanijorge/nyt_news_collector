@@ -1,3 +1,22 @@
+import os
+
+
+def _load_env():
+    """Lê KEY=VALUE de .env (na pasta deste arquivo). Variáveis já definidas no ambiente têm prioridade."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_env()
+
 import requests
 import mysql.connector 
 import time
@@ -11,8 +30,10 @@ from email.mime.application import MIMEApplication
 import os
 
 # === CONFIGURAÇÕES ===
-API_KEY = "REMOVIDO"
+API_KEY = os.environ["NYT_API_KEY_EMAIL"]
 BASE_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+YAHOO_USER = os.environ.get("YAHOO_USER", "hernani_jorge@yahoo.com.br")
+EMAIL_TO = os.environ.get("EMAIL_TO", "kjcoogan@gmail.com")
 #BEGIN_DATE = "20250809"
 #END_DATE = "20250810"
 # Data final é ontem
@@ -28,10 +49,10 @@ print(f"🔎 Coletando de {BEGIN_DATE} até {END_DATE}")
 
 # === BANCO DE DADOS (MySQL) ===
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'REMOVIDO',
-    'database': 'nyt_db',
+    'host': os.environ.get("MYSQL_HOST", "localhost"),
+    'user': os.environ["MYSQL_USER"],
+    'password': os.environ["MYSQL_PASSWORD"],
+    'database': os.environ.get("MYSQL_DATABASE", "nyt_db"),
     'charset': 'utf8mb4'
 }
 
@@ -136,8 +157,8 @@ def enviar_email_sucesso(qtd_artigos, caminho_csv):
 
     msg = MIMEMultipart()
     msg["Subject"] = "✅ NYT load completed successfully"
-    msg["From"] = "hernani_jorge@yahoo.com.br"
-    msg["To"] = "kjcoogan@gmail.com"
+    msg["From"] = YAHOO_USER
+    msg["To"] = EMAIL_TO
 
     msg.attach(MIMEText(corpo, "plain"))
 
@@ -151,7 +172,7 @@ def enviar_email_sucesso(qtd_artigos, caminho_csv):
 
     try:
         with smtplib.SMTP_SSL("smtp.mail.yahoo.com", 465) as server:
-            server.login("hernani_jorge@yahoo.com.br", "REMOVIDO")  # senha de app Yahoo
+            server.login(YAHOO_USER, os.environ["YAHOO_APP_PASSWORD"])
             server.send_message(msg)
         print("📧 E-mail com anexo enviado.")
     except Exception as e:

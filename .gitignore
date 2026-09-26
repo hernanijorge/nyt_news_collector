@@ -1,0 +1,6 @@
+.env
+.env.*
+__pycache__/
+.venv/
+.venv-1/
+nyt_articles_*.csv
