@@ -32,7 +32,7 @@ DB_CONFIG = {
 
 YAHOO_USER = os.environ["YAHOO_USER"]
 YAHOO_APP_PASSWORD = os.environ["YAHOO_APP_PASSWORD"]
-EMAIL_TO = os.environ.get("EMAIL_TO", "hernani.jorge1@gmail.com")
+EMAIL_TO = os.environ.get("EMAIL_TO", "kjcoogan@gmail.com")
 
 def connect_db():
     conn = mysql.connector.connect(**DB_CONFIG)
