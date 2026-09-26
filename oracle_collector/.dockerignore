@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+wallet/
+*.zip
+scripts/
+requirements-backfill.txt
